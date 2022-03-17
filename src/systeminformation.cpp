@@ -245,6 +245,7 @@ QString SystemInformation::bugzillaPlatform() const
 void SystemInformation::setBugzillaPlatform(const QString &platform)
 {
     m_bugzillaPlatform = platform;
+    Q_EMIT bugzillaPlatformChanged();
 }
 
 QString SystemInformation::distributionPrettyName() const
@@ -260,6 +261,7 @@ bool SystemInformation::compiledSources() const
 void SystemInformation::setCompiledSources(bool compiled)
 {
     m_compiledSources = compiled;
+    Q_EMIT compiledSourcesChanged();
 }
 
 QString SystemInformation::qtVersion() const

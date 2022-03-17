@@ -1,3 +1,5 @@
+add_definitions(-DTRANSLATION_DOMAIN=\"drkonqi5\")
+
 include(CheckFunctionExists)
 
 check_function_exists("strsignal" HAVE_STRSIGNAL)
@@ -41,6 +43,13 @@ set(drkonqi_SRCS
     statusnotifier_activationclosetimer.cpp
     linuxprocmapsparser.cpp
     drkonqi_globals.cpp
+    qmlextensions/duplicatemodel.cpp
+    qmlextensions/platformmodel.cpp
+    qmlextensions/reproducibilitymodel.cpp
+    qmlextensions/credentialstore.cpp
+    qmlextensions/commentmodel.cpp
+    qmlextensions/qobjectlistmodel.cpp
+    qmlextensions/doctore.cpp
 )
 
 ki18n_wrap_ui(drkonqi_SRCS
@@ -120,6 +129,7 @@ target_link_libraries(
     KF5::SyntaxHighlighting # Backtrace Highlighting
     drkonqi_backtrace_parser
     qbugzilla
+    KF5::Declarative
 )
 
 if(Systemd_FOUND)
@@ -136,7 +146,7 @@ if(WIN32)
     target_link_libraries(DrKonqiInternal kdewin)
 endif()
 
-add_executable(drkonqi main.cpp)
+add_executable(drkonqi main.cpp qml/qml.qrc)
 ecm_mark_nongui_executable(drkonqi)
 target_link_libraries(drkonqi DrKonqiInternal)
 

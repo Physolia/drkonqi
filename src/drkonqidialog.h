@@ -1,6 +1,7 @@
 /*******************************************************************
  * drkonqidialog.h
  * SPDX-FileCopyrightText: 2009 Dario Andres Rodriguez <andresbajotierra@gmail.com>
+ * SPDX-FileCopyrightText: 2022 Harald Sitter <sitter@kde.org>
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
@@ -30,6 +31,8 @@ class DrKonqiDialog : public QDialog
 public:
     explicit DrKonqiDialog(QWidget *parent = nullptr);
     ~DrKonqiDialog() override;
+
+    void show();
 
 private Q_SLOTS:
     void linkActivated(const QString &);

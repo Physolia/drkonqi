@@ -1,6 +1,7 @@
 /*******************************************************************
  * drkonqidialog.cpp
  * SPDX-FileCopyrightText: 2009 Dario Andres Rodriguez <andresbajotierra@gmail.com>
+ * SPDX-FileCopyrightText: 2022 Harald Sitter <sitter@kde.org>
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
@@ -8,6 +9,7 @@
 
 #include "drkonqidialog.h"
 
+#include <KDeclarative/KDeclarative>
 #include <KLocalizedString>
 #include <KWindowConfig>
 
@@ -16,11 +18,16 @@
 #include <QDialogButtonBox>
 #include <QLocale>
 #include <QMenu>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QStandardPaths>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QtQml>
 
 #include "aboutbugreportingdialog.h"
+#include "backtracegenerator.h"
+#include "backtraceparser.h"
 #include "backtracewidget.h"
 #include "bugzillaintegration/reportassistantdialog.h"
 #include "config-drkonqi.h"
@@ -29,14 +36,68 @@
 #include "debuggermanager.h"
 #include "drkonqi.h"
 #include "drkonqi_globals.h"
+#include "qmlextensions/commentmodel.h"
+#include "qmlextensions/credentialstore.h"
+#include "qmlextensions/doctore.h"
+#include "qmlextensions/duplicatemodel.h"
+#include "qmlextensions/platformmodel.h"
+#include "qmlextensions/reproducibilitymodel.h"
+#include "systeminformation.h"
 
 static const char ABOUT_BUG_REPORTING_URL[] = "#aboutbugreporting";
-static QString DRKONQI_REPORT_BUG_URL = KDE_BUGZILLA_URL + QStringLiteral("enter_bug.cgi?product=drkonqi&format=guided");
+static const QString DRKONQI_REPORT_BUG_URL = KDE_BUGZILLA_URL + QStringLiteral("enter_bug.cgi?product=drkonqi&format=guided");
+
+void DrKonqiDialog::show()
+{
+    if (DrKonqi::isSafer()) {
+        QDialog::show();
+    }
+
+    auto engine = new QQmlApplicationEngine(this);
+
+    static auto l10nContext = new KLocalizedContext(engine);
+    l10nContext->setTranslationDomain(QStringLiteral(TRANSLATION_DOMAIN));
+    engine->rootContext()->setContextObject(l10nContext);
+    KDeclarative::KDeclarative::setupEngine(engine);
+
+    qmlRegisterType<BugzillaManager>("org.kde.drkonqi", 1, 0, "Bugzilla");
+    qmlRegisterType<DuplicateModel>("org.kde.drkonqi", 1, 0, "DuplicateModel");
+    qmlRegisterType<PlatformModel>("org.kde.drkonqi", 1, 0, "PlatformModel");
+    qmlRegisterType<ReproducibilityModel>("org.kde.drkonqi", 1, 0, "ReproducibilityModel");
+    qmlRegisterType<ReportInterface>("org.kde.drkonqi", 1, 0, "ReportInterface");
+    qmlRegisterType<CredentialStore>("org.kde.drkonqi", 1, 0, "CredentialStore");
+    qmlRegisterType<DebugPackageInstaller>("org.kde.drkonqi", 1, 0, "DebugPackageInstaller");
+
+    qmlRegisterSingletonInstance("org.kde.drkonqi", 1, 0, "CrashedApplication", DrKonqi::crashedApplication());
+    qmlRegisterSingletonInstance("org.kde.drkonqi", 1, 0, "BacktraceGenerator", DrKonqi::debuggerManager()->backtraceGenerator());
+
+    static Doctore doctore;
+    qmlRegisterSingletonInstance("org.kde.drkonqi", 1, 0, "DrKonqi", &doctore);
+
+    // TODO do we need this second BG?
+    qmlRegisterUncreatableType<BacktraceGenerator>("org.kde.drkonqi", 1, 0, "BacktraceGenerator1", QStringLiteral("Cannot create WarningLevel in QML"));
+    qmlRegisterUncreatableType<BacktraceParser>("org.kde.drkonqi", 1, 0, "BacktraceParser", QStringLiteral("Cannot create WarningLevel in QML"));
+
+    const QUrl mainUrl(QStringLiteral("qrc:/ui/main.qml"));
+    QObject::connect(
+        engine,
+        &QQmlApplicationEngine::objectCreated,
+        this,
+        [mainUrl, this](QObject *obj, const QUrl &objUrl) {
+            if (!obj && mainUrl == objUrl) {
+                qWarning() << "Failed to load QML dialog, falling back to QWidget.";
+                QDialog::show();
+            }
+        },
+        Qt::QueuedConnection);
+    engine->load(mainUrl);
+}
 
 DrKonqiDialog::DrKonqiDialog(QWidget *parent)
     : QDialog(parent)
 {
     setAttribute(Qt::WA_DeleteOnClose, true);
+    QGuiApplication::setQuitOnLastWindowClosed(true);
 
     // Setting dialog title and icon
     setWindowTitle(DrKonqi::crashedApplication()->name());
@@ -313,3 +374,5 @@ void DrKonqiDialog::applicationRestarted(bool success)
 {
     m_restartButton->setEnabled(!success);
 }
+
+#include "drkonqidialog.moc"
